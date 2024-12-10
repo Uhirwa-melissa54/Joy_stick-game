@@ -1,8 +1,41 @@
 import pygame
 import serial
+import serial.tools.list_ports
 import random
 import sys
+import time
 
+def find_usb_port():
+    """Find the correct USB port for the Arduino."""
+    ports = serial.tools.list_ports.comports()
+    for port, desc, hwid in sorted(ports):
+        if port.startswith(('/dev/tty.usb', '/dev/cu.usb', 'COM', '/dev/ttyACM')):
+            return port
+    return None
+
+def connect_to_usb_port():
+    """Continuously attempt to connect to the USB port."""
+    while True:
+        port_name = find_usb_port()
+        if port_name is None:
+            print("No suitable USB port found. Retrying in 2 seconds...")
+            time.sleep(2)
+        else:
+            return serial.Serial(port_name, 9600)
+
+def reset_game():
+    """Reset the game state."""
+    global player_x, player_y, stones, dodged_stones, game_over, paused
+    player_x, player_y = win_width // 2, win_height - player_radius - 10
+    stones = [{"x": random.randint(0, win_width - stone_width), "y": -random.randint(50, 300)} for _ in range(stone_count)]
+    dodged_stones = 50
+    game_over = False
+    paused = False
+
+# Initialize serial communication
+ser = connect_to_usb_port()
+
+# Pygame setup
 pygame.init()
 
 # Window setup
@@ -31,50 +64,45 @@ stones = [{"x": random.randint(0, win_width - stone_width), "y": -random.randint
 clock = pygame.time.Clock()
 running = True
 game_over = False
-dodged_stones = 50  # Countdown to winning
-
-# Serial communication setup
-arduino_port = '/dev/tty.usbmodem1301'  # Replace with your Arduino port
-ser = serial.Serial(arduino_port, 9600)
+paused = False
+dodged_stones = 50
 
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_r:
+                reset_game()
+            elif event.key == pygame.K_q:
+                running = False
+            elif event.key == pygame.K_p:
+                paused = not paused
+
+    if paused or game_over:
+        continue
 
     # Handle serial data for joystick input
     try:
         data = ser.readline().decode().strip().split(',')
         if len(data) == 3:
             joy_x, joy_y, button_state = map(int, data)
-
-            # Move player based on joystick input
             player_x += (joy_x - 512) // 100 * 5
             player_y += (joy_y - 512) // 100 * 5
-
-            # Keep player within screen bounds
             player_x = max(player_radius, min(win_width - player_radius, player_x))
             player_y = max(player_radius, min(win_height - player_radius, player_y))
     except Exception as e:
-        print(f"Error reading joystick data: {e}")
         continue
 
     # Move stones
     for stone in stones:
         stone["y"] += stone_speed
-
-        # Reset stone if it goes off-screen
         if stone["y"] > win_height:
             stone["y"] = -random.randint(50, 300)
             stone["x"] = random.randint(0, win_width - stone_width)
-            dodged_stones -= 1  # Successfully dodged a stone
-
-            # Check win condition
+            dodged_stones -= 1
             if dodged_stones == 0:
-                running = False
-                game_over = False
-
-        # Check for collision
+                game_over = True
         if (
             player_x - player_radius < stone["x"] + stone_width
             and player_x + player_radius > stone["x"]
@@ -82,29 +110,17 @@ while running:
             and player_y + player_radius > stone["y"]
         ):
             game_over = True
-            running = False
 
     # Drawing
     win.fill(bg_color)
-
     if game_over:
-        # Game Over screen
         font = pygame.font.Font(None, 74)
-        text = font.render("Game Over!", True, failure_color)
-        win.blit(text, (win_width // 2 - text.get_width() // 2, win_height // 2 - text.get_height() // 2))
-    elif dodged_stones == 0:
-        # Win screen
-        font = pygame.font.Font(None, 74)
-        text = font.render("You Win!", True, win_color)
+        text = font.render("Game Over! Press R to restart", True, failure_color)
         win.blit(text, (win_width // 2 - text.get_width() // 2, win_height // 2 - text.get_height() // 2))
     else:
-        # Draw player
         pygame.draw.circle(win, player_color, (player_x, player_y), player_radius)
-        # Draw stones
         for stone in stones:
             pygame.draw.rect(win, stone_color, (stone["x"], stone["y"], stone_width, stone_height))
-
-        # Draw remaining stones to dodge
         font = pygame.font.Font(None, 36)
         text = font.render(f"Stones to dodge: {dodged_stones}", True, (0, 0, 0))
         win.blit(text, (10, 10))
@@ -112,7 +128,6 @@ while running:
     pygame.display.flip()
     clock.tick(60)
 
-# Clean up
 ser.close()
 pygame.quit()
 sys.exit()
