@@ -1,15 +1,12 @@
-# Interactive-Joystick-Game-Arduino-Python
-Interactive Joystick Game with Arduino and Pygame
+# Arduino Joystick Game
 
-This repository contains the source code and resources for creating an interactive joystick-controlled game using Arduino and Pygame.
+This project connects an **Arduino joystick** to a game built in **Python**, allowing you to control the game using physical joystick movements.
 
-Files Overview
+### Project Files
+- **README.md** – Overview and instructions for the project.  
+- **Arduino_code/joystick_reader.ino** – Arduino sketch for reading joystick input.  
+- **joystick-game-using-pygame.py** – Game implemented with Pygame.  
+- **joystick-game-using-opengl.py** – Game implemented with OpenGL.  
 
-	•	README.md: Detailed project description, setup instructions, and usage guidelines.
-	•	joystick_reader.ino: Arduino sketch for reading joystick inputs and communicating them to the game.
-	•	joystick-game-using-opengl.py: Python script implementing the game using OpenGL.
-	•	joystick-game-using-pygame.py: Python script implementing the game using Pygame.
-
-Description
-
-The project demonstrates how to use an Arduino to read joystick inputs and interact with a Python-based game built with Pygame or OpenGL. It’s a hands-on guide for integrating hardware and software for game development.
+### About
+The Arduino reads the joystick’s X and Y movements and sends them to the Python game via serial communication. This demonstrates how to integrate hardware and software to create an interactive game experience.
